@@ -1,0 +1,11 @@
+[Desktop Entry]
+Name=n01d Machine
+Comment=Virtual Machine Manager for NullSec Linux
+Exec=/home/antics/n01d-machine/n01d-gui
+Icon=/home/antics/n01d-machine/n01d-icon.svg
+Terminal=false
+Type=Application
+Categories=System;Emulator;Virtualization;
+Keywords=vm;virtual;machine;qemu;kvm;iso;
+StartupNotify=true
+StartupWMClass=n01d-machine

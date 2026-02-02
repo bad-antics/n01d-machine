@@ -1,0 +1,469 @@
+#!/usr/bin/env python3
+"""
+n01d Machine - Virtual Machine Manager
+A lightweight VM launcher for managing and running ISOs
+"""
+
+import os
+import sys
+import json
+import subprocess
+import shutil
+from pathlib import Path
+
+# Colors
+CYAN = '\033[0;36m'
+GREEN = '\033[0;32m'
+YELLOW = '\033[1;33m'
+RED = '\033[0;31m'
+BOLD = '\033[1m'
+NC = '\033[0m'
+
+# Paths
+HOME = Path.home()
+N01D_DIR = HOME / "n01d-machine"
+VM_DIR = N01D_DIR / "vms"
+ISO_DIR = N01D_DIR / "isos"
+CONFIG_FILE = N01D_DIR / "config.json"
+
+def banner():
+    print(f"{CYAN}")
+    print(" ▐ ▌   █▀█  ▄█  █▀▄    █▀▄▀█ ▄▀█ █▀▀ █ █ █ █▄ █ █▀▀")
+    print(" █ █   █▄█   █  █▄▀    █ ▀ █ █▀█ █▄▄ █▀█ █ █ ▀█ ██▄")
+    print(f"{NC}")
+    print(f"           {BOLD}Virtual Machine Manager{NC}")
+    print()
+
+def init_dirs():
+    """Initialize n01d directories"""
+    VM_DIR.mkdir(parents=True, exist_ok=True)
+    ISO_DIR.mkdir(parents=True, exist_ok=True)
+    if not CONFIG_FILE.exists():
+        save_config({"vms": {}, "default_ram": 4096, "default_cpus": 4})
+
+def load_config():
+    """Load configuration"""
+    if CONFIG_FILE.exists():
+        with open(CONFIG_FILE) as f:
+            return json.load(f)
+    return {"vms": {}, "default_ram": 4096, "default_cpus": 4}
+
+def save_config(config):
+    """Save configuration"""
+    with open(CONFIG_FILE, 'w') as f:
+        json.dump(config, f, indent=2)
+
+def list_isos():
+    """List available ISOs"""
+    isos = []
+    # Check n01d iso directory
+    for iso in ISO_DIR.glob("*.iso"):
+        isos.append(iso)
+    # Also search common locations
+    search_paths = [
+        HOME / "Downloads",
+        HOME / "ISOs",
+        HOME / "projects",
+        Path("/home/antics/projects/nullsec-linux/build"),
+    ]
+    for path in search_paths:
+        if path.exists():
+            for iso in path.rglob("*.iso"):
+                if iso not in isos:
+                    isos.append(iso)
+    return isos
+
+def list_vms():
+    """List configured VMs"""
+    config = load_config()
+    return config.get("vms", {})
+
+def create_vm(name, iso_path=None, ram=None, cpus=None, disk_size=None):
+    """Create a new VM"""
+    config = load_config()
+    
+    if name in config["vms"]:
+        print(f"{RED}[!] VM '{name}' already exists{NC}")
+        return False
+    
+    ram = ram or config["default_ram"]
+    cpus = cpus or config["default_cpus"]
+    disk_size = disk_size or 40
+    
+    vm_path = VM_DIR / name
+    vm_path.mkdir(exist_ok=True)
+    disk_path = vm_path / f"{name}.qcow2"
+    
+    # Create disk
+    print(f"{GREEN}[*] Creating {disk_size}GB disk for '{name}'...{NC}")
+    subprocess.run([
+        "qemu-img", "create", "-f", "qcow2", 
+        str(disk_path), f"{disk_size}G"
+    ], check=True)
+    
+    config["vms"][name] = {
+        "disk": str(disk_path),
+        "iso": str(iso_path) if iso_path else None,
+        "ram": ram,
+        "cpus": cpus,
+        "created": True
+    }
+    save_config(config)
+    
+    print(f"{GREEN}[+] VM '{name}' created successfully{NC}")
+    return True
+
+def delete_vm(name):
+    """Delete a VM"""
+    config = load_config()
+    
+    if name not in config["vms"]:
+        print(f"{RED}[!] VM '{name}' not found{NC}")
+        return False
+    
+    vm_path = VM_DIR / name
+    if vm_path.exists():
+        shutil.rmtree(vm_path)
+    
+    del config["vms"][name]
+    save_config(config)
+    
+    print(f"{GREEN}[+] VM '{name}' deleted{NC}")
+    return True
+
+def run_vm(name, iso_override=None, live=False, headless=False, install=False):
+    """Run a VM"""
+    config = load_config()
+    
+    if name not in config["vms"]:
+        print(f"{RED}[!] VM '{name}' not found{NC}")
+        return False
+    
+    vm = config["vms"][name]
+    disk = vm["disk"]
+    iso = iso_override or vm.get("iso")
+    ram = vm.get("ram", 4096)
+    cpus = vm.get("cpus", 4)
+    
+    cmd = [
+        "qemu-system-x86_64",
+        "-name", f"n01d-{name}",
+        "-enable-kvm",
+        "-m", str(ram),
+        "-smp", str(cpus),
+        "-cpu", "host",
+        "-drive", f"file={disk},format=qcow2,if=virtio",
+        "-netdev", "user,id=net0,hostfwd=tcp::2222-:22",
+        "-device", "virtio-net-pci,netdev=net0",
+        "-vga", "virtio",
+        "-usb",
+        "-device", "usb-tablet",
+    ]
+    
+    if iso and (live or install):
+        if not Path(iso).exists():
+            print(f"{RED}[!] ISO not found: {iso}{NC}")
+            return False
+        cmd.extend(["-cdrom", iso])
+        if install or live:
+            cmd.extend(["-boot", "d"])
+        print(f"{GREEN}[*] Booting from ISO: {iso}{NC}")
+    else:
+        cmd.extend(["-boot", "c"])
+        print(f"{GREEN}[*] Booting from disk{NC}")
+    
+    if headless:
+        cmd.extend(["-nographic"])
+        print(f"{YELLOW}[*] Headless mode - SSH: ssh -p 2222 root@localhost{NC}")
+    else:
+        cmd.extend(["-display", "gtk"])
+    
+    print(f"{GREEN}[*] Starting VM '{name}' (RAM: {ram}MB, CPUs: {cpus}){NC}")
+    print()
+    
+    try:
+        subprocess.run(cmd)
+    except KeyboardInterrupt:
+        print(f"\n{YELLOW}[*] VM stopped{NC}")
+    
+    return True
+
+def quick_boot(iso_path, ram=4096, cpus=4):
+    """Quick boot an ISO without creating a VM"""
+    if not Path(iso_path).exists():
+        print(f"{RED}[!] ISO not found: {iso_path}{NC}")
+        return False
+    
+    print(f"{GREEN}[*] Quick booting: {iso_path}{NC}")
+    print(f"{YELLOW}[*] No disk attached - Live mode only{NC}")
+    print()
+    
+    cmd = [
+        "qemu-system-x86_64",
+        "-name", "n01d-quickboot",
+        "-enable-kvm",
+        "-m", str(ram),
+        "-smp", str(cpus),
+        "-cpu", "host",
+        "-cdrom", iso_path,
+        "-boot", "d",
+        "-netdev", "user,id=net0,hostfwd=tcp::2222-:22",
+        "-device", "virtio-net-pci,netdev=net0",
+        "-vga", "virtio",
+        "-usb",
+        "-device", "usb-tablet",
+        "-display", "gtk",
+    ]
+    
+    try:
+        subprocess.run(cmd)
+    except KeyboardInterrupt:
+        print(f"\n{YELLOW}[*] VM stopped{NC}")
+    
+    return True
+
+def interactive_menu():
+    """Interactive VM manager menu"""
+    while True:
+        banner()
+        print(f"{BOLD}  [1]{NC} List VMs")
+        print(f"{BOLD}  [2]{NC} Create VM")
+        print(f"{BOLD}  [3]{NC} Run VM")
+        print(f"{BOLD}  [4]{NC} Delete VM")
+        print(f"{BOLD}  [5]{NC} Quick Boot ISO")
+        print(f"{BOLD}  [6]{NC} List Available ISOs")
+        print(f"{BOLD}  [7]{NC} Settings")
+        print(f"{BOLD}  [q]{NC} Quit")
+        print()
+        
+        choice = input(f"{CYAN}n01d>{NC} ").strip().lower()
+        
+        if choice == '1':
+            print(f"\n{BOLD}=== Configured VMs ==={NC}")
+            vms = list_vms()
+            if not vms:
+                print(f"{YELLOW}  No VMs configured{NC}")
+            else:
+                for name, vm in vms.items():
+                    iso_status = f"ISO: {Path(vm['iso']).name}" if vm.get('iso') else "No ISO"
+                    print(f"  {GREEN}•{NC} {name} (RAM: {vm['ram']}MB, CPUs: {vm['cpus']}) - {iso_status}")
+            input("\nPress Enter to continue...")
+            
+        elif choice == '2':
+            print(f"\n{BOLD}=== Create New VM ==={NC}")
+            name = input("VM Name: ").strip()
+            if not name:
+                continue
+            
+            # Show available ISOs
+            isos = list_isos()
+            if isos:
+                print(f"\n{BOLD}Available ISOs:{NC}")
+                for i, iso in enumerate(isos, 1):
+                    print(f"  [{i}] {iso.name}")
+                print(f"  [0] No ISO / Select later")
+                iso_choice = input("\nSelect ISO: ").strip()
+                try:
+                    idx = int(iso_choice)
+                    iso_path = str(isos[idx-1]) if idx > 0 else None
+                except:
+                    iso_path = None
+            else:
+                iso_path = None
+            
+            ram = input("RAM (MB) [4096]: ").strip() or "4096"
+            cpus = input("CPUs [4]: ").strip() or "4"
+            disk = input("Disk Size (GB) [40]: ").strip() or "40"
+            
+            create_vm(name, iso_path, int(ram), int(cpus), int(disk))
+            input("\nPress Enter to continue...")
+            
+        elif choice == '3':
+            vms = list_vms()
+            if not vms:
+                print(f"{YELLOW}No VMs configured. Create one first.{NC}")
+                input("\nPress Enter to continue...")
+                continue
+            
+            print(f"\n{BOLD}=== Run VM ==={NC}")
+            for i, name in enumerate(vms.keys(), 1):
+                print(f"  [{i}] {name}")
+            
+            vm_choice = input("\nSelect VM: ").strip()
+            try:
+                idx = int(vm_choice) - 1
+                vm_name = list(vms.keys())[idx]
+            except:
+                continue
+            
+            print(f"\n{BOLD}Boot Options:{NC}")
+            print("  [1] Boot from disk")
+            print("  [2] Boot from ISO (live)")
+            print("  [3] Install from ISO")
+            print("  [4] Headless mode")
+            
+            boot_choice = input("\nSelect option [1]: ").strip() or "1"
+            
+            if boot_choice == "1":
+                run_vm(vm_name)
+            elif boot_choice == "2":
+                run_vm(vm_name, live=True)
+            elif boot_choice == "3":
+                run_vm(vm_name, install=True)
+            elif boot_choice == "4":
+                run_vm(vm_name, headless=True)
+            
+        elif choice == '4':
+            vms = list_vms()
+            if not vms:
+                print(f"{YELLOW}No VMs to delete.{NC}")
+                input("\nPress Enter to continue...")
+                continue
+            
+            print(f"\n{BOLD}=== Delete VM ==={NC}")
+            for i, name in enumerate(vms.keys(), 1):
+                print(f"  [{i}] {name}")
+            
+            vm_choice = input("\nSelect VM to delete: ").strip()
+            try:
+                idx = int(vm_choice) - 1
+                vm_name = list(vms.keys())[idx]
+                confirm = input(f"Delete '{vm_name}'? [y/N]: ").strip().lower()
+                if confirm == 'y':
+                    delete_vm(vm_name)
+            except:
+                pass
+            input("\nPress Enter to continue...")
+            
+        elif choice == '5':
+            print(f"\n{BOLD}=== Quick Boot ISO ==={NC}")
+            isos = list_isos()
+            if isos:
+                print(f"\n{BOLD}Available ISOs:{NC}")
+                for i, iso in enumerate(isos, 1):
+                    print(f"  [{i}] {iso}")
+                print(f"  [0] Enter path manually")
+                
+                iso_choice = input("\nSelect ISO: ").strip()
+                try:
+                    idx = int(iso_choice)
+                    if idx == 0:
+                        iso_path = input("ISO path: ").strip()
+                    else:
+                        iso_path = str(isos[idx-1])
+                except:
+                    continue
+            else:
+                iso_path = input("ISO path: ").strip()
+            
+            if iso_path:
+                quick_boot(iso_path)
+            
+        elif choice == '6':
+            print(f"\n{BOLD}=== Available ISOs ==={NC}")
+            isos = list_isos()
+            if not isos:
+                print(f"{YELLOW}  No ISOs found{NC}")
+            else:
+                for iso in isos:
+                    size_mb = iso.stat().st_size / (1024*1024)
+                    if size_mb > 1024:
+                        size_str = f"{size_mb/1024:.1f} GB"
+                    else:
+                        size_str = f"{size_mb:.0f} MB"
+                    print(f"  {GREEN}•{NC} {iso.name} ({size_str})")
+                    print(f"      {iso}")
+            input("\nPress Enter to continue...")
+            
+        elif choice == '7':
+            config = load_config()
+            print(f"\n{BOLD}=== Settings ==={NC}")
+            print(f"  Default RAM: {config['default_ram']} MB")
+            print(f"  Default CPUs: {config['default_cpus']}")
+            print(f"  VM Directory: {VM_DIR}")
+            print(f"  ISO Directory: {ISO_DIR}")
+            
+            print(f"\n{BOLD}Update defaults:{NC}")
+            new_ram = input(f"Default RAM [{config['default_ram']}]: ").strip()
+            new_cpus = input(f"Default CPUs [{config['default_cpus']}]: ").strip()
+            
+            if new_ram:
+                config['default_ram'] = int(new_ram)
+            if new_cpus:
+                config['default_cpus'] = int(new_cpus)
+            save_config(config)
+            
+            print(f"{GREEN}[+] Settings saved{NC}")
+            input("\nPress Enter to continue...")
+            
+        elif choice == 'q':
+            print(f"{GREEN}Goodbye!{NC}")
+            break
+        
+        os.system('clear' if os.name == 'posix' else 'cls')
+
+def main():
+    init_dirs()
+    
+    if len(sys.argv) < 2:
+        interactive_menu()
+        return
+    
+    cmd = sys.argv[1]
+    
+    if cmd == "list":
+        banner()
+        print(f"{BOLD}=== Configured VMs ==={NC}")
+        vms = list_vms()
+        if not vms:
+            print(f"{YELLOW}  No VMs configured{NC}")
+        else:
+            for name, vm in vms.items():
+                print(f"  {GREEN}•{NC} {name} (RAM: {vm['ram']}MB, CPUs: {vm['cpus']})")
+    
+    elif cmd == "create" and len(sys.argv) >= 3:
+        banner()
+        name = sys.argv[2]
+        iso = sys.argv[3] if len(sys.argv) > 3 else None
+        create_vm(name, iso)
+    
+    elif cmd == "run" and len(sys.argv) >= 3:
+        banner()
+        name = sys.argv[2]
+        live = "--live" in sys.argv
+        install = "--install" in sys.argv
+        headless = "--headless" in sys.argv
+        run_vm(name, live=live, install=install, headless=headless)
+    
+    elif cmd == "delete" and len(sys.argv) >= 3:
+        banner()
+        delete_vm(sys.argv[2])
+    
+    elif cmd == "boot" and len(sys.argv) >= 3:
+        banner()
+        quick_boot(sys.argv[2])
+    
+    elif cmd == "isos":
+        banner()
+        print(f"{BOLD}=== Available ISOs ==={NC}")
+        for iso in list_isos():
+            size_mb = iso.stat().st_size / (1024*1024)
+            size_str = f"{size_mb/1024:.1f} GB" if size_mb > 1024 else f"{size_mb:.0f} MB"
+            print(f"  {GREEN}•{NC} {iso.name} ({size_str})")
+    
+    else:
+        banner()
+        print(f"{BOLD}Usage:{NC}")
+        print(f"  n01d                     - Interactive mode")
+        print(f"  n01d list                - List all VMs")
+        print(f"  n01d create <name> [iso] - Create a new VM")
+        print(f"  n01d run <name>          - Run a VM")
+        print(f"  n01d run <name> --live   - Boot VM from ISO")
+        print(f"  n01d run <name> --install - Install from ISO")
+        print(f"  n01d run <name> --headless - Run headless")
+        print(f"  n01d delete <name>       - Delete a VM")
+        print(f"  n01d boot <iso>          - Quick boot an ISO")
+        print(f"  n01d isos                - List available ISOs")
+
+if __name__ == "__main__":
+    main()

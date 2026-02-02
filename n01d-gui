@@ -1,0 +1,410 @@
+#!/usr/bin/env python3
+"""n01d Machine - GUI Virtual Machine Manager"""
+
+import os, sys, json, subprocess, threading, shutil
+from pathlib import Path
+
+try:
+    import gi
+    gi.require_version('Gtk', '3.0')
+    from gi.repository import Gtk, Gdk, GLib
+    GTK_AVAILABLE = True
+except ImportError:
+    GTK_AVAILABLE = False
+
+HOME = Path.home()
+N01D_DIR = HOME / "n01d-machine"
+VM_DIR = N01D_DIR / "vms"
+ISO_DIR = N01D_DIR / "isos"
+CONFIG_FILE = N01D_DIR / "config.json"
+
+def init_dirs():
+    VM_DIR.mkdir(parents=True, exist_ok=True)
+    ISO_DIR.mkdir(parents=True, exist_ok=True)
+    if not CONFIG_FILE.exists():
+        save_config({"vms": {}, "default_ram": 4096, "default_cpus": 4})
+
+def load_config():
+    if CONFIG_FILE.exists():
+        with open(CONFIG_FILE) as f:
+            return json.load(f)
+    return {"vms": {}, "default_ram": 4096, "default_cpus": 4}
+
+def save_config(config):
+    with open(CONFIG_FILE, 'w') as f:
+        json.dump(config, f, indent=2)
+
+def list_isos():
+    isos = []
+    for iso in ISO_DIR.glob("*.iso"):
+        isos.append(iso)
+    search_paths = [HOME / "Downloads", HOME / "ISOs", HOME / "projects",
+                    Path("/home/antics/projects/nullsec-linux/build"), HOME / "VMs"]
+    for path in search_paths:
+        if path.exists():
+            for iso in path.rglob("*.iso"):
+                if iso not in isos:
+                    isos.append(iso)
+    return isos
+
+class N01dWindow(Gtk.Window):
+    def __init__(self):
+        super().__init__(title="n01d Machine")
+        self.set_default_size(900, 600)
+        self.sidebar_buttons = {}
+        self.vm_list_box = None
+        self.iso_list_box = None
+        self.main_stack = None
+        self.statusbar = None
+        self.apply_css()
+        self.build_ui()
+
+    def build_ui(self):
+        main_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=0)
+        self.add(main_box)
+        
+        # Header
+        header = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=5)
+        header.get_style_context().add_class("header")
+        title = Gtk.Label()
+        title.set_markup('<span font_family="monospace" foreground="#00d4aa">▐ ▌  █▀█ ▄█ █▀▄   █▀▄▀█ ▄▀█ █▀▀ █ █ █ █▄ █ █▀▀\n█ █  █▄█  █ █▄▀   █ ▀ █ █▀█ █▄▄ █▀█ █ █ ▀█ ██▄</span>')
+        header.pack_start(title, False, False, 0)
+        subtitle = Gtk.Label()
+        subtitle.set_markup('<span foreground="#888">Virtual Machine Manager</span>')
+        header.pack_start(subtitle, False, False, 0)
+        main_box.pack_start(header, False, False, 0)
+        
+        # Content
+        content = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=0)
+        main_box.pack_start(content, True, True, 0)
+        
+        # Sidebar
+        sidebar = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=5)
+        sidebar.get_style_context().add_class("sidebar")
+        sidebar.set_size_request(200, -1)
+        for label, name in [("🖥️  Virtual Machines", "vms"), ("💿  ISO Images", "isos"), 
+                           ("➕  Create VM", "create"), ("⚙️  Settings", "settings")]:
+            btn = Gtk.ToggleButton(label=label)
+            btn.get_style_context().add_class("sidebar-button")
+            btn.connect("toggled", self.on_sidebar_button, name)
+            sidebar.pack_start(btn, False, False, 0)
+            self.sidebar_buttons[name] = btn
+        sidebar.pack_start(Gtk.Box(), True, True, 0)
+        qb = Gtk.Button(label="⚡ Quick Boot ISO")
+        qb.get_style_context().add_class("action-button")
+        qb.connect("clicked", self.on_quick_boot)
+        sidebar.pack_end(qb, False, False, 10)
+        content.pack_start(sidebar, False, False, 0)
+        
+        # Stack
+        self.main_stack = Gtk.Stack()
+        self.main_stack.set_transition_type(Gtk.StackTransitionType.SLIDE_LEFT_RIGHT)
+        content.pack_start(self.main_stack, True, True, 0)
+        
+        # Views
+        self.main_stack.add_titled(self.create_vm_list_view(), "vms", "VMs")
+        self.main_stack.add_titled(self.create_iso_view(), "isos", "ISOs")
+        self.main_stack.add_titled(self.create_create_vm_view(), "create", "Create")
+        self.main_stack.add_titled(self.create_settings_view(), "settings", "Settings")
+        
+        # Status bar
+        self.statusbar = Gtk.Label(label="Ready")
+        self.statusbar.set_xalign(0)
+        self.statusbar.get_style_context().add_class("statusbar")
+        main_box.pack_end(self.statusbar, False, False, 0)
+        
+        # Set initial view
+        self.sidebar_buttons["vms"].set_active(True)
+        self.refresh_vm_list()
+
+    def apply_css(self):
+        css = b"""
+        window { background-color: #1a1a2e; }
+        .header { background-color: #16213e; padding: 15px; }
+        .sidebar { background-color: #16213e; padding: 10px; }
+        .sidebar-button { background: transparent; border: none; color: #eaeaea; padding: 12px 20px; border-radius: 8px; margin: 2px 5px; }
+        .sidebar-button:hover { background-color: #0f3460; }
+        .sidebar-button:checked { background-color: #00d4aa; color: #1a1a2e; }
+        .vm-card { background-color: #16213e; border-radius: 10px; padding: 15px; margin: 10px; }
+        .vm-name { color: #00d4aa; font-size: 16px; font-weight: bold; }
+        .vm-info { color: #888; font-size: 12px; }
+        .action-button { background-color: #0f3460; color: #eaeaea; border: none; padding: 8px 16px; border-radius: 5px; margin: 2px; }
+        .action-button:hover { background-color: #00d4aa; color: #1a1a2e; }
+        .run-button { background-color: #00ff88; color: #1a1a2e; }
+        .delete-button { background-color: #ff4757; color: white; }
+        entry, spinbutton { background-color: #0f3460; color: #eaeaea; border: 1px solid #00d4aa; border-radius: 5px; padding: 8px; }
+        label { color: #eaeaea; }
+        .section-title { color: #00d4aa; font-size: 18px; font-weight: bold; }
+        .statusbar { background-color: #16213e; color: #888; padding: 8px 15px; }
+        .iso-item { background-color: #16213e; border-radius: 8px; padding: 10px; margin: 5px 10px; }
+        .create-button { background-color: #00d4aa; color: #1a1a2e; font-weight: bold; padding: 12px 30px; border-radius: 8px; }
+        """
+        sp = Gtk.CssProvider()
+        sp.load_from_data(css)
+        Gtk.StyleContext.add_provider_for_screen(Gdk.Screen.get_default(), sp, Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION)
+
+    def on_sidebar_button(self, button, name):
+        if button.get_active():
+            for n, b in self.sidebar_buttons.items():
+                if n != name: b.set_active(False)
+            if self.main_stack:
+                self.main_stack.set_visible_child_name(name)
+            if name == "vms": self.refresh_vm_list()
+            elif name == "isos": self.refresh_iso_list()
+
+    def create_vm_list_view(self):
+        box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=10)
+        box.set_margin_start(20); box.set_margin_end(20); box.set_margin_top(20)
+        t = Gtk.Label(label="Virtual Machines")
+        t.get_style_context().add_class("section-title"); t.set_xalign(0)
+        box.pack_start(t, False, False, 0)
+        scroll = Gtk.ScrolledWindow()
+        scroll.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
+        box.pack_start(scroll, True, True, 0)
+        self.vm_list_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=0)
+        scroll.add(self.vm_list_box)
+        return box
+
+    def refresh_vm_list(self):
+        if not self.vm_list_box: return
+        for c in self.vm_list_box.get_children(): self.vm_list_box.remove(c)
+        vms = load_config().get("vms", {})
+        if not vms:
+            lbl = Gtk.Label(label="No VMs configured.\nClick 'Create VM' to start.")
+            self.vm_list_box.pack_start(lbl, True, True, 50)
+        else:
+            for name, vm in vms.items():
+                self.vm_list_box.pack_start(self.create_vm_card(name, vm), False, False, 0)
+        self.vm_list_box.show_all()
+
+    def create_vm_card(self, name, vm):
+        card = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=15)
+        card.get_style_context().add_class("vm-card")
+        info = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=5)
+        card.pack_start(info, True, True, 0)
+        nl = Gtk.Label(label=name); nl.get_style_context().add_class("vm-name"); nl.set_xalign(0)
+        info.pack_start(nl, False, False, 0)
+        iso_name = Path(vm['iso']).name if vm.get('iso') else "No ISO"
+        dl = Gtk.Label(label=f"RAM: {vm['ram']}MB • CPUs: {vm['cpus']} • {iso_name}")
+        dl.get_style_context().add_class("vm-info"); dl.set_xalign(0)
+        info.pack_start(dl, False, False, 0)
+        btns = Gtk.Box(spacing=5)
+        card.pack_end(btns, False, False, 0)
+        
+        run_btn = Gtk.Button(label="▶ Run")
+        run_btn.get_style_context().add_class("action-button")
+        run_btn.get_style_context().add_class("run-button")
+        run_btn.connect("clicked", lambda b, n=name: self.run_vm(n))
+        btns.pack_start(run_btn, False, False, 0)
+        
+        live_btn = Gtk.Button(label="💿 Live")
+        live_btn.get_style_context().add_class("action-button")
+        live_btn.connect("clicked", lambda b, n=name: self.run_vm(n, live=True))
+        btns.pack_start(live_btn, False, False, 0)
+        
+        install_btn = Gtk.Button(label="📥 Install")
+        install_btn.get_style_context().add_class("action-button")
+        install_btn.connect("clicked", lambda b, n=name: self.run_vm(n, install=True))
+        btns.pack_start(install_btn, False, False, 0)
+        
+        del_btn = Gtk.Button(label="🗑️")
+        del_btn.get_style_context().add_class("action-button")
+        del_btn.get_style_context().add_class("delete-button")
+        del_btn.connect("clicked", lambda b, n=name: self.on_delete_vm(n))
+        btns.pack_start(del_btn, False, False, 0)
+        
+        return card
+
+    def create_iso_view(self):
+        box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=10)
+        box.set_margin_start(20); box.set_margin_end(20); box.set_margin_top(20)
+        t = Gtk.Label(label="ISO Images"); t.get_style_context().add_class("section-title"); t.set_xalign(0)
+        box.pack_start(t, False, False, 0)
+        scroll = Gtk.ScrolledWindow()
+        scroll.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
+        box.pack_start(scroll, True, True, 0)
+        self.iso_list_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=0)
+        scroll.add(self.iso_list_box)
+        return box
+
+    def refresh_iso_list(self):
+        if not self.iso_list_box: return
+        for c in self.iso_list_box.get_children(): self.iso_list_box.remove(c)
+        isos = list_isos()
+        if not isos:
+            self.iso_list_box.pack_start(Gtk.Label(label="No ISOs found.\nPlace ISOs in ~/n01d-machine/isos/"), True, True, 50)
+        else:
+            for iso in isos:
+                item = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=10)
+                item.get_style_context().add_class("iso-item")
+                info = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=3)
+                item.pack_start(info, True, True, 0)
+                nl = Gtk.Label(label=iso.name); nl.get_style_context().add_class("vm-name"); nl.set_xalign(0)
+                info.pack_start(nl, False, False, 0)
+                sz = iso.stat().st_size/(1024*1024)
+                szs = f"{sz/1024:.1f} GB" if sz > 1024 else f"{sz:.0f} MB"
+                pl = Gtk.Label(label=f"{iso.parent} • {szs}"); pl.get_style_context().add_class("vm-info"); pl.set_xalign(0)
+                info.pack_start(pl, False, False, 0)
+                bb = Gtk.Button(label="⚡ Quick Boot")
+                bb.get_style_context().add_class("action-button")
+                bb.connect("clicked", lambda b, p=str(iso): self.quick_boot_iso(p))
+                item.pack_end(bb, False, False, 0)
+                self.iso_list_box.pack_start(item, False, False, 0)
+        self.iso_list_box.show_all()
+
+    def create_create_vm_view(self):
+        box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=15)
+        box.set_margin_start(40); box.set_margin_end(40); box.set_margin_top(20)
+        t = Gtk.Label(label="Create New Virtual Machine"); t.get_style_context().add_class("section-title"); t.set_xalign(0)
+        box.pack_start(t, False, False, 0)
+        grid = Gtk.Grid(); grid.set_row_spacing(15); grid.set_column_spacing(15)
+        box.pack_start(grid, False, False, 0)
+        grid.attach(Gtk.Label(label="VM Name:"), 0, 0, 1, 1)
+        self.name_entry = Gtk.Entry(); self.name_entry.set_placeholder_text("e.g., my-linux-vm"); self.name_entry.set_hexpand(True)
+        grid.attach(self.name_entry, 1, 0, 2, 1)
+        grid.attach(Gtk.Label(label="ISO Image:"), 0, 1, 1, 1)
+        self.iso_combo = Gtk.ComboBoxText(); self.iso_combo.append("none", "No ISO")
+        for iso in list_isos(): self.iso_combo.append(str(iso), iso.name)
+        self.iso_combo.set_active(0); self.iso_combo.set_hexpand(True)
+        grid.attach(self.iso_combo, 1, 1, 1, 1)
+        bb = Gtk.Button(label="Browse..."); bb.connect("clicked", self.on_browse_iso)
+        grid.attach(bb, 2, 1, 1, 1)
+        grid.attach(Gtk.Label(label="RAM (MB):"), 0, 2, 1, 1)
+        self.ram_spin = Gtk.SpinButton.new_with_range(512, 32768, 512); self.ram_spin.set_value(4096)
+        grid.attach(self.ram_spin, 1, 2, 2, 1)
+        grid.attach(Gtk.Label(label="CPUs:"), 0, 3, 1, 1)
+        self.cpu_spin = Gtk.SpinButton.new_with_range(1, 16, 1); self.cpu_spin.set_value(4)
+        grid.attach(self.cpu_spin, 1, 3, 2, 1)
+        grid.attach(Gtk.Label(label="Disk Size (GB):"), 0, 4, 1, 1)
+        self.disk_spin = Gtk.SpinButton.new_with_range(10, 500, 10); self.disk_spin.set_value(40)
+        grid.attach(self.disk_spin, 1, 4, 2, 1)
+        cb = Gtk.Button(label="Create Virtual Machine"); cb.get_style_context().add_class("create-button")
+        cb.connect("clicked", self.on_create_vm)
+        box.pack_start(cb, False, False, 20)
+        return box
+
+    def create_settings_view(self):
+        box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=15)
+        box.set_margin_start(40); box.set_margin_end(40); box.set_margin_top(20)
+        t = Gtk.Label(label="Settings"); t.get_style_context().add_class("section-title"); t.set_xalign(0)
+        box.pack_start(t, False, False, 0)
+        cfg = load_config()
+        grid = Gtk.Grid(); grid.set_row_spacing(15); grid.set_column_spacing(15)
+        box.pack_start(grid, False, False, 0)
+        grid.attach(Gtk.Label(label="Default RAM (MB):"), 0, 0, 1, 1)
+        self.default_ram_spin = Gtk.SpinButton.new_with_range(512, 32768, 512)
+        self.default_ram_spin.set_value(cfg.get("default_ram", 4096))
+        grid.attach(self.default_ram_spin, 1, 0, 1, 1)
+        grid.attach(Gtk.Label(label="Default CPUs:"), 0, 1, 1, 1)
+        self.default_cpu_spin = Gtk.SpinButton.new_with_range(1, 16, 1)
+        self.default_cpu_spin.set_value(cfg.get("default_cpus", 4))
+        grid.attach(self.default_cpu_spin, 1, 1, 1, 1)
+        grid.attach(Gtk.Label(label="VM Directory:"), 0, 2, 1, 1)
+        grid.attach(Gtk.Label(label=str(VM_DIR)), 1, 2, 1, 1)
+        grid.attach(Gtk.Label(label="ISO Directory:"), 0, 3, 1, 1)
+        grid.attach(Gtk.Label(label=str(ISO_DIR)), 1, 3, 1, 1)
+        sb = Gtk.Button(label="Save Settings"); sb.get_style_context().add_class("create-button")
+        sb.connect("clicked", self.on_save_settings)
+        box.pack_start(sb, False, False, 20)
+        return box
+
+    def on_browse_iso(self, button):
+        d = Gtk.FileChooserDialog(title="Select ISO", parent=self, action=Gtk.FileChooserAction.OPEN)
+        d.add_buttons(Gtk.STOCK_CANCEL, Gtk.ResponseType.CANCEL, Gtk.STOCK_OPEN, Gtk.ResponseType.OK)
+        f = Gtk.FileFilter(); f.set_name("ISO Images"); f.add_pattern("*.iso"); d.add_filter(f)
+        if d.run() == Gtk.ResponseType.OK:
+            p = d.get_filename()
+            self.iso_combo.append(p, Path(p).name)
+            self.iso_combo.set_active_id(p)
+        d.destroy()
+
+    def on_create_vm(self, button):
+        name = self.name_entry.get_text().strip()
+        if not name: self.show_message("Error", "Enter a VM name"); return
+        cfg = load_config()
+        if name in cfg.get("vms", {}): self.show_message("Error", f"VM '{name}' exists"); return
+        iso_id = self.iso_combo.get_active_id()
+        iso_path = None if iso_id == "none" else iso_id
+        ram, cpus, disk_size = int(self.ram_spin.get_value()), int(self.cpu_spin.get_value()), int(self.disk_spin.get_value())
+        vm_path = VM_DIR / name; vm_path.mkdir(exist_ok=True)
+        disk_path = vm_path / f"{name}.qcow2"
+        self.set_status(f"Creating {disk_size}GB disk...")
+        def create():
+            subprocess.run(["qemu-img", "create", "-f", "qcow2", str(disk_path), f"{disk_size}G"], check=True)
+            cfg["vms"][name] = {"disk": str(disk_path), "iso": iso_path, "ram": ram, "cpus": cpus}
+            save_config(cfg)
+            GLib.idle_add(self.vm_created_callback, name)
+        threading.Thread(target=create).start()
+
+    def vm_created_callback(self, name):
+        self.set_status(f"VM '{name}' created!")
+        self.name_entry.set_text("")
+        self.refresh_vm_list()
+        self.sidebar_buttons["vms"].set_active(True)
+        return False
+
+    def run_vm(self, name, live=False, install=False):
+        vm = load_config()["vms"][name]
+        cmd = ["qemu-system-x86_64", "-name", f"n01d-{name}", "-enable-kvm", "-m", str(vm["ram"]),
+               "-smp", str(vm["cpus"]), "-cpu", "host", "-drive", f"file={vm['disk']},format=qcow2,if=virtio",
+               "-netdev", "user,id=net0,hostfwd=tcp::2222-:22", "-device", "virtio-net-pci,netdev=net0",
+               "-vga", "virtio", "-usb", "-device", "usb-tablet", "-display", "gtk"]
+        if vm.get("iso") and (live or install):
+            cmd.extend(["-cdrom", vm["iso"], "-boot", "d"])
+            self.set_status(f"Booting '{name}' from ISO...")
+        else:
+            cmd.extend(["-boot", "c"])
+            self.set_status(f"Starting '{name}'...")
+        subprocess.Popen(cmd)
+
+    def on_delete_vm(self, name):
+        d = Gtk.MessageDialog(parent=self, flags=0, message_type=Gtk.MessageType.WARNING,
+                              buttons=Gtk.ButtonsType.YES_NO, text=f"Delete '{name}'?")
+        d.format_secondary_text("This will delete the disk permanently.")
+        if d.run() == Gtk.ResponseType.YES:
+            cfg = load_config()
+            vm_path = VM_DIR / name
+            if vm_path.exists(): shutil.rmtree(vm_path)
+            del cfg["vms"][name]; save_config(cfg)
+            self.set_status(f"VM '{name}' deleted")
+            self.refresh_vm_list()
+        d.destroy()
+
+    def quick_boot_iso(self, iso_path):
+        self.set_status(f"Quick booting {Path(iso_path).name}...")
+        subprocess.Popen(["qemu-system-x86_64", "-name", "n01d-quickboot", "-enable-kvm", "-m", "4096", "-smp", "4",
+                          "-cpu", "host", "-cdrom", iso_path, "-boot", "d", "-netdev", "user,id=net0,hostfwd=tcp::2222-:22",
+                          "-device", "virtio-net-pci,netdev=net0", "-vga", "virtio", "-usb", "-device", "usb-tablet", "-display", "gtk"])
+
+    def on_quick_boot(self, button):
+        d = Gtk.FileChooserDialog(title="Select ISO", parent=self, action=Gtk.FileChooserAction.OPEN)
+        d.add_buttons(Gtk.STOCK_CANCEL, Gtk.ResponseType.CANCEL, "Boot", Gtk.ResponseType.OK)
+        f = Gtk.FileFilter(); f.set_name("ISO Images"); f.add_pattern("*.iso"); d.add_filter(f)
+        if d.run() == Gtk.ResponseType.OK: self.quick_boot_iso(d.get_filename())
+        d.destroy()
+
+    def on_save_settings(self, button):
+        cfg = load_config()
+        cfg["default_ram"] = int(self.default_ram_spin.get_value())
+        cfg["default_cpus"] = int(self.default_cpu_spin.get_value())
+        save_config(cfg)
+        self.set_status("Settings saved!")
+
+    def set_status(self, text):
+        if self.statusbar:
+            self.statusbar.set_text(text)
+    
+    def show_message(self, title, msg):
+        d = Gtk.MessageDialog(parent=self, flags=0, message_type=Gtk.MessageType.INFO, buttons=Gtk.ButtonsType.OK, text=title)
+        d.format_secondary_text(msg); d.run(); d.destroy()
+
+def main():
+    if not GTK_AVAILABLE: print("Install: sudo apt install python3-gi gir1.2-gtk-3.0"); sys.exit(1)
+    init_dirs()
+    win = N01dWindow()
+    win.connect("destroy", Gtk.main_quit)
+    win.show_all()
+    Gtk.main()
+
+if __name__ == "__main__":
+    main()

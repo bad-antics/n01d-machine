@@ -1,0 +1,45 @@
+[package]
+name = "n01d-machine"
+version = "1.0.0"
+edition = "2021"
+authors = ["bad-antics"]
+description = "n01d Machine - Secure virtualization platform with sandboxing"
+license = "MIT"
+
+[dependencies]
+# Core
+tokio = { version = "1.35", features = ["full"] }
+anyhow = "1.0"
+thiserror = "1.0"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+toml = "0.8"
+
+# GUI
+gtk4 = "0.7"
+libadwaita = "0.5"
+
+# VM Management
+nix = { version = "0.27", features = ["process", "mount", "net"] }
+caps = "0.5"
+seccompiler = "0.4"
+
+# Networking
+ipnetwork = "0.20"
+pnet = "0.34"
+
+# Crypto
+ring = "0.17"
+base64 = "0.21"
+
+# CLI
+clap = { version = "4.4", features = ["derive"] }
+colored = "2.1"
+
+# Logging
+tracing = "0.1"
+tracing-subscriber = "0.3"
+
+[[bin]]
+name = "n01d"
+path = "src/main.rs"

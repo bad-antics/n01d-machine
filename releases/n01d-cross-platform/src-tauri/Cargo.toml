@@ -1,0 +1,30 @@
+[package]
+name = "n01d-machine"
+version = "1.0.0"
+description = "n01d Machine - Cross-Platform Virtual Machine Manager"
+authors = ["NullSec Team"]
+license = "MIT"
+repository = "https://github.com/bad-antics/n01d-machine"
+edition = "2021"
+
+[build-dependencies]
+tauri-build = { version = "1.5", features = [] }
+
+[dependencies]
+tauri = { version = "1.6", features = ["shell-open", "dialog-all", "fs-all", "path-all", "process-spawn"] }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+dirs = "5.0"
+tokio = { version = "1.35", features = ["full"] }
+which = "6.0"
+
+[features]
+default = ["custom-protocol"]
+custom-protocol = ["tauri/custom-protocol"]
+
+[profile.release]
+panic = "abort"
+codegen-units = 1
+lto = true
+opt-level = "s"
+strip = true

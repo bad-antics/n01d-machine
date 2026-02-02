@@ -1,0 +1,730 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>n01d Machine</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        :root {
+            --bg-dark: #1a1a2e;
+            --bg-card: #16213e;
+            --bg-input: #0f3460;
+            --accent: #00d4aa;
+            --accent-bright: #00ff88;
+            --text: #eaeaea;
+            --text-dim: #888;
+            --danger: #ff4757;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: var(--bg-dark);
+            color: var(--text);
+            min-height: 100vh;
+            display: flex;
+        }
+        
+        /* Sidebar */
+        .sidebar {
+            width: 220px;
+            background: var(--bg-card);
+            padding: 20px 0;
+            display: flex;
+            flex-direction: column;
+            border-right: 1px solid var(--accent);
+        }
+        
+        .logo {
+            text-align: center;
+            padding: 20px;
+            border-bottom: 1px solid var(--bg-input);
+            margin-bottom: 20px;
+        }
+        
+        .logo h1 {
+            font-family: 'Courier New', monospace;
+            color: var(--accent);
+            font-size: 28px;
+            text-shadow: 0 0 10px var(--accent);
+        }
+        
+        .logo span {
+            font-size: 12px;
+            color: var(--text-dim);
+        }
+        
+        .nav-btn {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 15px 25px;
+            background: none;
+            border: none;
+            color: var(--text);
+            cursor: pointer;
+            font-size: 15px;
+            width: 100%;
+            text-align: left;
+            transition: all 0.2s;
+        }
+        
+        .nav-btn:hover {
+            background: var(--bg-input);
+        }
+        
+        .nav-btn.active {
+            background: var(--accent);
+            color: var(--bg-dark);
+            font-weight: bold;
+        }
+        
+        .nav-btn .icon {
+            font-size: 20px;
+        }
+        
+        .sidebar-footer {
+            margin-top: auto;
+            padding: 15px;
+            border-top: 1px solid var(--bg-input);
+            text-align: center;
+        }
+        
+        #qemu-status {
+            font-size: 12px;
+            color: var(--text-dim);
+        }
+        
+        #qemu-status.installed { color: var(--accent); }
+        #qemu-status.missing { color: var(--danger); }
+        
+        /* Main Content */
+        .main {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .header {
+            background: var(--bg-card);
+            padding: 15px 25px;
+            border-bottom: 1px solid var(--bg-input);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .header h2 {
+            color: var(--accent);
+        }
+        
+        .quick-boot-btn {
+            background: var(--accent);
+            color: var(--bg-dark);
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: all 0.2s;
+        }
+        
+        .quick-boot-btn:hover {
+            background: var(--accent-bright);
+            transform: translateY(-2px);
+        }
+        
+        .content {
+            flex: 1;
+            padding: 25px;
+            overflow-y: auto;
+        }
+        
+        .view {
+            display: none;
+        }
+        
+        .view.active {
+            display: block;
+        }
+        
+        /* VM Cards */
+        .vm-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+            gap: 20px;
+        }
+        
+        .vm-card {
+            background: var(--bg-card);
+            border-radius: 10px;
+            padding: 20px;
+            border: 1px solid var(--bg-input);
+            transition: all 0.2s;
+        }
+        
+        .vm-card:hover {
+            border-color: var(--accent);
+            box-shadow: 0 5px 20px rgba(0, 212, 170, 0.1);
+        }
+        
+        .vm-card h3 {
+            color: var(--accent);
+            margin-bottom: 10px;
+            font-size: 18px;
+        }
+        
+        .vm-info {
+            color: var(--text-dim);
+            font-size: 13px;
+            margin-bottom: 15px;
+        }
+        
+        .vm-actions {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+        
+        .btn {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 13px;
+            transition: all 0.2s;
+        }
+        
+        .btn-run {
+            background: var(--accent-bright);
+            color: var(--bg-dark);
+        }
+        
+        .btn-live {
+            background: var(--accent);
+            color: var(--bg-dark);
+        }
+        
+        .btn-install {
+            background: var(--bg-input);
+            color: var(--text);
+            border: 1px solid var(--accent);
+        }
+        
+        .btn-delete {
+            background: var(--danger);
+            color: white;
+        }
+        
+        .btn:hover {
+            transform: translateY(-2px);
+            filter: brightness(1.1);
+        }
+        
+        /* Empty State */
+        .empty-state {
+            text-align: center;
+            padding: 60px;
+            color: var(--text-dim);
+        }
+        
+        .empty-state .icon {
+            font-size: 60px;
+            margin-bottom: 20px;
+        }
+        
+        /* ISO List */
+        .iso-list {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        
+        .iso-item {
+            background: var(--bg-card);
+            border-radius: 8px;
+            padding: 15px 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border: 1px solid var(--bg-input);
+        }
+        
+        .iso-item:hover {
+            border-color: var(--accent);
+        }
+        
+        .iso-name {
+            font-weight: 500;
+            color: var(--text);
+        }
+        
+        .iso-size {
+            color: var(--text-dim);
+            font-size: 13px;
+        }
+        
+        /* Create VM Form */
+        .form-section {
+            max-width: 600px;
+        }
+        
+        .form-group {
+            margin-bottom: 20px;
+        }
+        
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            color: var(--text);
+            font-weight: 500;
+        }
+        
+        .form-group input,
+        .form-group select {
+            width: 100%;
+            padding: 12px 15px;
+            background: var(--bg-input);
+            border: 1px solid var(--accent);
+            border-radius: 5px;
+            color: var(--text);
+            font-size: 15px;
+        }
+        
+        .form-group input:focus,
+        .form-group select:focus {
+            outline: none;
+            border-color: var(--accent-bright);
+            box-shadow: 0 0 10px rgba(0, 212, 170, 0.2);
+        }
+        
+        .form-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+        
+        .create-btn {
+            background: var(--accent);
+            color: var(--bg-dark);
+            border: none;
+            padding: 15px 40px;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        .create-btn:hover {
+            background: var(--accent-bright);
+            transform: translateY(-2px);
+        }
+        
+        /* Settings */
+        .settings-section {
+            max-width: 500px;
+        }
+        
+        .settings-info {
+            margin-top: 30px;
+            padding: 20px;
+            background: var(--bg-card);
+            border-radius: 8px;
+        }
+        
+        .settings-info p {
+            color: var(--text-dim);
+            margin: 8px 0;
+        }
+        
+        /* Statusbar */
+        .statusbar {
+            background: var(--bg-card);
+            padding: 10px 25px;
+            border-top: 1px solid var(--bg-input);
+            font-size: 13px;
+            color: var(--text-dim);
+        }
+        
+        /* Toast Notifications */
+        .toast {
+            position: fixed;
+            bottom: 60px;
+            right: 20px;
+            background: var(--bg-card);
+            border: 1px solid var(--accent);
+            border-radius: 8px;
+            padding: 15px 25px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+            z-index: 1000;
+            animation: slideIn 0.3s ease;
+        }
+        
+        .toast.error {
+            border-color: var(--danger);
+        }
+        
+        @keyframes slideIn {
+            from {
+                transform: translateX(100%);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+    </style>
+</head>
+<body>
+    <aside class="sidebar">
+        <div class="logo">
+            <h1>n01d</h1>
+            <span>Virtual Machine Manager</span>
+        </div>
+        
+        <button class="nav-btn active" data-view="vms">
+            <span class="icon">🖥️</span>
+            <span>Virtual Machines</span>
+        </button>
+        <button class="nav-btn" data-view="isos">
+            <span class="icon">💿</span>
+            <span>ISO Images</span>
+        </button>
+        <button class="nav-btn" data-view="create">
+            <span class="icon">➕</span>
+            <span>Create VM</span>
+        </button>
+        <button class="nav-btn" data-view="settings">
+            <span class="icon">⚙️</span>
+            <span>Settings</span>
+        </button>
+        
+        <div class="sidebar-footer">
+            <div id="qemu-status">Checking QEMU...</div>
+        </div>
+    </aside>
+    
+    <main class="main">
+        <header class="header">
+            <h2 id="page-title">Virtual Machines</h2>
+            <button class="quick-boot-btn" onclick="quickBootDialog()">⚡ Quick Boot ISO</button>
+        </header>
+        
+        <section class="content">
+            <!-- VMs View -->
+            <div id="vms-view" class="view active">
+                <div id="vm-grid" class="vm-grid"></div>
+            </div>
+            
+            <!-- ISOs View -->
+            <div id="isos-view" class="view">
+                <div id="iso-list" class="iso-list"></div>
+            </div>
+            
+            <!-- Create VM View -->
+            <div id="create-view" class="view">
+                <div class="form-section">
+                    <div class="form-group">
+                        <label>VM Name</label>
+                        <input type="text" id="vm-name" placeholder="e.g., my-linux-vm">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>ISO Image</label>
+                        <select id="vm-iso">
+                            <option value="">No ISO attached</option>
+                        </select>
+                    </div>
+                    
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>RAM (MB)</label>
+                            <input type="number" id="vm-ram" value="4096" min="512" max="32768" step="512">
+                        </div>
+                        <div class="form-group">
+                            <label>CPU Cores</label>
+                            <input type="number" id="vm-cpus" value="4" min="1" max="16">
+                        </div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>Disk Size (GB)</label>
+                        <input type="number" id="vm-disk" value="40" min="10" max="500" step="10">
+                    </div>
+                    
+                    <button class="create-btn" onclick="createVM()">Create Virtual Machine</button>
+                </div>
+            </div>
+            
+            <!-- Settings View -->
+            <div id="settings-view" class="view">
+                <div class="settings-section">
+                    <div class="form-group">
+                        <label>Default RAM (MB)</label>
+                        <input type="number" id="default-ram" value="4096" min="512" max="32768" step="512">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>Default CPU Cores</label>
+                        <input type="number" id="default-cpus" value="4" min="1" max="16">
+                    </div>
+                    
+                    <button class="create-btn" onclick="saveSettings()">Save Settings</button>
+                    
+                    <div class="settings-info">
+                        <h4 style="color: var(--accent); margin-bottom: 10px;">Paths</h4>
+                        <p><strong>VMs:</strong> ~/n01d-machine/vms/</p>
+                        <p><strong>ISOs:</strong> ~/n01d-machine/isos/</p>
+                        <p><strong>Config:</strong> ~/n01d-machine/config.json</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+        
+        <footer class="statusbar">
+            <span id="status-text">Ready</span>
+        </footer>
+    </main>
+
+    <script>
+        const { invoke } = window.__TAURI__.tauri;
+        const { open } = window.__TAURI__.dialog;
+        
+        // Navigation
+        document.querySelectorAll('.nav-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                
+                const view = btn.dataset.view;
+                document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+                document.getElementById(`${view}-view`).classList.add('active');
+                
+                const titles = {
+                    vms: 'Virtual Machines',
+                    isos: 'ISO Images',
+                    create: 'Create New VM',
+                    settings: 'Settings'
+                };
+                document.getElementById('page-title').textContent = titles[view];
+                
+                if (view === 'vms') loadVMs();
+                if (view === 'isos') loadISOs();
+                if (view === 'create') populateISOSelect();
+            });
+        });
+        
+        // Load VMs
+        async function loadVMs() {
+            const vms = await invoke('get_vms');
+            const grid = document.getElementById('vm-grid');
+            
+            if (Object.keys(vms).length === 0) {
+                grid.innerHTML = `
+                    <div class="empty-state">
+                        <div class="icon">🖥️</div>
+                        <h3>No Virtual Machines</h3>
+                        <p>Click "Create VM" to create your first virtual machine</p>
+                    </div>
+                `;
+                return;
+            }
+            
+            grid.innerHTML = Object.entries(vms).map(([name, vm]) => `
+                <div class="vm-card">
+                    <h3>${name}</h3>
+                    <div class="vm-info">
+                        RAM: ${vm.ram}MB • CPUs: ${vm.cpus}<br>
+                        ISO: ${vm.iso ? vm.iso.split('/').pop() : 'None'}
+                    </div>
+                    <div class="vm-actions">
+                        <button class="btn btn-run" onclick="runVM('${name}', false, false)">▶ Run</button>
+                        <button class="btn btn-live" onclick="runVM('${name}', true, false)">💿 Live</button>
+                        <button class="btn btn-install" onclick="runVM('${name}', false, true)">📥 Install</button>
+                        <button class="btn btn-delete" onclick="deleteVM('${name}')">🗑️</button>
+                    </div>
+                </div>
+            `).join('');
+        }
+        
+        // Load ISOs
+        async function loadISOs() {
+            const isos = await invoke('list_isos');
+            const list = document.getElementById('iso-list');
+            
+            if (isos.length === 0) {
+                list.innerHTML = `
+                    <div class="empty-state">
+                        <div class="icon">💿</div>
+                        <h3>No ISO Images Found</h3>
+                        <p>Place ISO files in ~/n01d-machine/isos/</p>
+                    </div>
+                `;
+                return;
+            }
+            
+            list.innerHTML = isos.map(iso => {
+                const name = iso.split('/').pop();
+                return `
+                    <div class="iso-item">
+                        <div>
+                            <div class="iso-name">${name}</div>
+                            <div class="iso-size">${iso}</div>
+                        </div>
+                        <button class="btn btn-run" onclick="quickBoot('${iso}')">⚡ Quick Boot</button>
+                    </div>
+                `;
+            }).join('');
+        }
+        
+        // Populate ISO select in create form
+        async function populateISOSelect() {
+            const isos = await invoke('list_isos');
+            const select = document.getElementById('vm-iso');
+            select.innerHTML = '<option value="">No ISO attached</option>';
+            isos.forEach(iso => {
+                const name = iso.split('/').pop();
+                select.innerHTML += `<option value="${iso}">${name}</option>`;
+            });
+        }
+        
+        // Create VM
+        async function createVM() {
+            const name = document.getElementById('vm-name').value.trim();
+            const iso = document.getElementById('vm-iso').value || null;
+            const ram = parseInt(document.getElementById('vm-ram').value);
+            const cpus = parseInt(document.getElementById('vm-cpus').value);
+            const disk = parseInt(document.getElementById('vm-disk').value);
+            
+            if (!name) {
+                showToast('Please enter a VM name', true);
+                return;
+            }
+            
+            setStatus('Creating VM...');
+            try {
+                const result = await invoke('create_vm', { name, iso, ram, cpus, diskSize: disk });
+                showToast(result);
+                document.getElementById('vm-name').value = '';
+                
+                // Switch to VMs view
+                document.querySelector('[data-view="vms"]').click();
+            } catch (e) {
+                showToast(e, true);
+            }
+            setStatus('Ready');
+        }
+        
+        // Run VM
+        async function runVM(name, live, install) {
+            setStatus(`Starting ${name}...`);
+            try {
+                await invoke('run_vm', { name, live, install });
+                showToast(`VM "${name}" started`);
+            } catch (e) {
+                showToast(e, true);
+            }
+            setStatus('Ready');
+        }
+        
+        // Delete VM
+        async function deleteVM(name) {
+            if (!confirm(`Delete VM "${name}"? This will permanently delete the disk.`)) return;
+            
+            try {
+                const result = await invoke('delete_vm', { name });
+                showToast(result);
+                loadVMs();
+            } catch (e) {
+                showToast(e, true);
+            }
+        }
+        
+        // Quick Boot
+        async function quickBoot(isoPath) {
+            setStatus('Booting ISO...');
+            try {
+                await invoke('quick_boot_iso', { isoPath });
+                showToast('ISO booted successfully');
+            } catch (e) {
+                showToast(e, true);
+            }
+            setStatus('Ready');
+        }
+        
+        // Quick Boot Dialog
+        async function quickBootDialog() {
+            const selected = await open({
+                multiple: false,
+                filters: [{ name: 'ISO Images', extensions: ['iso'] }]
+            });
+            if (selected) {
+                quickBoot(selected);
+            }
+        }
+        
+        // Save Settings
+        async function saveSettings() {
+            const ram = parseInt(document.getElementById('default-ram').value);
+            const cpus = parseInt(document.getElementById('default-cpus').value);
+            
+            try {
+                await invoke('save_settings', { defaultRam: ram, defaultCpus: cpus });
+                showToast('Settings saved');
+            } catch (e) {
+                showToast(e, true);
+            }
+        }
+        
+        // Load Settings
+        async function loadSettings() {
+            const config = await invoke('get_config');
+            document.getElementById('default-ram').value = config.default_ram || 4096;
+            document.getElementById('default-cpus').value = config.default_cpus || 4;
+            document.getElementById('vm-ram').value = config.default_ram || 4096;
+            document.getElementById('vm-cpus').value = config.default_cpus || 4;
+        }
+        
+        // Check QEMU
+        async function checkQemu() {
+            const installed = await invoke('check_qemu_installed');
+            const el = document.getElementById('qemu-status');
+            if (installed) {
+                el.textContent = '✓ QEMU installed';
+                el.className = 'installed';
+            } else {
+                el.textContent = '✗ QEMU not found';
+                el.className = 'missing';
+            }
+        }
+        
+        // Status
+        function setStatus(text) {
+            document.getElementById('status-text').textContent = text;
+        }
+        
+        // Toast
+        function showToast(message, isError = false) {
+            const toast = document.createElement('div');
+            toast.className = `toast ${isError ? 'error' : ''}`;
+            toast.textContent = message;
+            document.body.appendChild(toast);
+            setTimeout(() => toast.remove(), 3000);
+        }
+        
+        // Init
+        window.addEventListener('DOMContentLoaded', () => {
+            loadVMs();
+            loadSettings();
+            checkQemu();
+        });
+    </script>
+</body>
+</html>

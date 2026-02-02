@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="256" height="256" viewBox="0 0 256 256" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#1a1a2e"/>
+      <stop offset="100%" style="stop-color:#16213e"/>
+    </linearGradient>
+    <linearGradient id="accentGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" style="stop-color:#00d4aa"/>
+      <stop offset="100%" style="stop-color:#00ff88"/>
+    </linearGradient>
+    <filter id="glow">
+      <feGaussianBlur stdDeviation="3" result="coloredBlur"/>
+      <feMerge>
+        <feMergeNode in="coloredBlur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+  
+  <!-- Background circle -->
+  <circle cx="128" cy="128" r="120" fill="url(#bgGrad)" stroke="url(#accentGrad)" stroke-width="4"/>
+  
+  <!-- Inner monitor frame -->
+  <rect x="48" y="55" width="160" height="110" rx="8" ry="8" fill="none" stroke="url(#accentGrad)" stroke-width="3" filter="url(#glow)"/>
+  
+  <!-- Screen -->
+  <rect x="56" y="63" width="144" height="94" rx="4" ry="4" fill="#0f3460"/>
+  
+  <!-- Monitor stand -->
+  <path d="M108 165 L148 165 L155 185 L101 185 Z" fill="url(#accentGrad)" opacity="0.8"/>
+  <rect x="88" y="185" width="80" height="8" rx="2" ry="2" fill="url(#accentGrad)" opacity="0.8"/>
+  
+  <!-- n01d text on screen -->
+  <text x="128" y="118" font-family="monospace" font-size="28" font-weight="bold" fill="#00d4aa" text-anchor="middle" filter="url(#glow)">n01d</text>
+  
+  <!-- Terminal cursor blink -->
+  <rect x="155" y="105" width="12" height="24" fill="#00ff88" opacity="0.9">
+    <animate attributeName="opacity" values="0.9;0.2;0.9" dur="1s" repeatCount="indefinite"/>
+  </rect>
+  
+  <!-- Matrix-style decorations -->
+  <text x="70" y="80" font-family="monospace" font-size="10" fill="#00d4aa" opacity="0.5">0x7F</text>
+  <text x="150" y="150" font-family="monospace" font-size="10" fill="#00d4aa" opacity="0.5">VM</text>
+  
+  <!-- Circuit lines -->
+  <path d="M20 128 L40 128" stroke="#00d4aa" stroke-width="2" opacity="0.6"/>
+  <path d="M216 128 L236 128" stroke="#00d4aa" stroke-width="2" opacity="0.6"/>
+  <path d="M128 20 L128 40" stroke="#00d4aa" stroke-width="2" opacity="0.6"/>
+  <path d="M128 216 L128 236" stroke="#00d4aa" stroke-width="2" opacity="0.6"/>
+  
+  <!-- Corner nodes -->
+  <circle cx="40" cy="40" r="6" fill="#00d4aa" opacity="0.4"/>
+  <circle cx="216" cy="40" r="6" fill="#00d4aa" opacity="0.4"/>
+  <circle cx="40" cy="216" r="6" fill="#00d4aa" opacity="0.4"/>
+  <circle cx="216" cy="216" r="6" fill="#00d4aa" opacity="0.4"/>
+</svg>

@@ -1,0 +1,13 @@
+{
+  "vms": {
+    "nullsec-linux": {
+      "disk": "/home/antics/n01d-machine/vms/nullsec-linux/nullsec-linux.qcow2",
+      "iso": "/home/antics/projects/nullsec-linux/build/nullsec-linux-1.0-amd64.iso",
+      "ram": 4096,
+      "cpus": 4,
+      "created": true
+    }
+  },
+  "default_ram": 4096,
+  "default_cpus": 4
+}
