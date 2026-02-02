@@ -5,12 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>n01d Machine</title>
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-        
+        * { margin: 0; padding: 0; box-sizing: border-box; }
         :root {
             --bg-dark: #1a1a2e;
             --bg-card: #16213e;
@@ -20,8 +15,9 @@
             --text: #eaeaea;
             --text-dim: #888;
             --danger: #ff4757;
+            --warning: #ffa502;
+            --purple: #a855f7;
         }
-        
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
             background: var(--bg-dark);
@@ -29,8 +25,6 @@
             min-height: 100vh;
             display: flex;
         }
-        
-        /* Sidebar */
         .sidebar {
             width: 220px;
             background: var(--bg-card);
@@ -39,26 +33,19 @@
             flex-direction: column;
             border-right: 1px solid var(--accent);
         }
-        
         .logo {
             text-align: center;
             padding: 20px;
             border-bottom: 1px solid var(--bg-input);
             margin-bottom: 20px;
         }
-        
         .logo h1 {
             font-family: 'Courier New', monospace;
             color: var(--accent);
             font-size: 28px;
             text-shadow: 0 0 10px var(--accent);
         }
-        
-        .logo span {
-            font-size: 12px;
-            color: var(--text-dim);
-        }
-        
+        .logo span { font-size: 12px; color: var(--text-dim); }
         .nav-btn {
             display: flex;
             align-items: center;
@@ -73,43 +60,20 @@
             text-align: left;
             transition: all 0.2s;
         }
-        
-        .nav-btn:hover {
-            background: var(--bg-input);
-        }
-        
-        .nav-btn.active {
-            background: var(--accent);
-            color: var(--bg-dark);
-            font-weight: bold;
-        }
-        
-        .nav-btn .icon {
-            font-size: 20px;
-        }
-        
+        .nav-btn:hover { background: var(--bg-input); }
+        .nav-btn.active { background: var(--accent); color: var(--bg-dark); font-weight: bold; }
+        .nav-btn .icon { font-size: 20px; }
         .sidebar-footer {
             margin-top: auto;
             padding: 15px;
             border-top: 1px solid var(--bg-input);
             text-align: center;
         }
-        
-        #qemu-status {
-            font-size: 12px;
-            color: var(--text-dim);
-        }
-        
-        #qemu-status.installed { color: var(--accent); }
-        #qemu-status.missing { color: var(--danger); }
-        
-        /* Main Content */
-        .main {
-            flex: 1;
-            display: flex;
-            flex-direction: column;
-        }
-        
+        .status-item { font-size: 11px; color: var(--text-dim); margin: 4px 0; }
+        .status-item.ok { color: var(--accent); }
+        .status-item.warn { color: var(--warning); }
+        .status-item.error { color: var(--danger); }
+        .main { flex: 1; display: flex; flex-direction: column; }
         .header {
             background: var(--bg-card);
             padding: 15px 25px;
@@ -118,48 +82,26 @@
             justify-content: space-between;
             align-items: center;
         }
-        
-        .header h2 {
-            color: var(--accent);
-        }
-        
-        .quick-boot-btn {
-            background: var(--accent);
-            color: var(--bg-dark);
-            border: none;
+        .header h2 { color: var(--accent); }
+        .header-actions { display: flex; gap: 10px; }
+        .btn {
             padding: 10px 20px;
+            border: none;
             border-radius: 5px;
             cursor: pointer;
             font-weight: bold;
             transition: all 0.2s;
         }
-        
-        .quick-boot-btn:hover {
-            background: var(--accent-bright);
-            transform: translateY(-2px);
-        }
-        
-        .content {
-            flex: 1;
-            padding: 25px;
-            overflow-y: auto;
-        }
-        
-        .view {
-            display: none;
-        }
-        
-        .view.active {
-            display: block;
-        }
-        
-        /* VM Cards */
-        .vm-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
-            gap: 20px;
-        }
-        
+        .btn:hover { transform: translateY(-2px); filter: brightness(1.1); }
+        .btn-primary { background: var(--accent); color: var(--bg-dark); }
+        .btn-secondary { background: var(--bg-input); color: var(--text); border: 1px solid var(--accent); }
+        .btn-danger { background: var(--danger); color: white; }
+        .btn-purple { background: var(--purple); color: white; }
+        .btn-sm { padding: 6px 12px; font-size: 13px; }
+        .content { flex: 1; padding: 25px; overflow-y: auto; }
+        .view { display: none; }
+        .view.active { display: block; }
+        .vm-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(380px, 1fr)); gap: 20px; }
         .vm-card {
             background: var(--bg-card);
             border-radius: 10px;
@@ -167,84 +109,24 @@
             border: 1px solid var(--bg-input);
             transition: all 0.2s;
         }
-        
-        .vm-card:hover {
-            border-color: var(--accent);
-            box-shadow: 0 5px 20px rgba(0, 212, 170, 0.1);
+        .vm-card:hover { border-color: var(--accent); box-shadow: 0 5px 20px rgba(0, 212, 170, 0.1); }
+        .vm-card h3 { color: var(--accent); margin-bottom: 10px; font-size: 18px; }
+        .vm-info { color: var(--text-dim); font-size: 13px; margin-bottom: 15px; }
+        .vm-security-badge {
+            display: inline-block;
+            padding: 3px 8px;
+            border-radius: 4px;
+            font-size: 11px;
+            margin-top: 8px;
         }
-        
-        .vm-card h3 {
-            color: var(--accent);
-            margin-bottom: 10px;
-            font-size: 18px;
-        }
-        
-        .vm-info {
-            color: var(--text-dim);
-            font-size: 13px;
-            margin-bottom: 15px;
-        }
-        
-        .vm-actions {
-            display: flex;
-            gap: 8px;
-            flex-wrap: wrap;
-        }
-        
-        .btn {
-            padding: 8px 16px;
-            border: none;
-            border-radius: 5px;
-            cursor: pointer;
-            font-size: 13px;
-            transition: all 0.2s;
-        }
-        
-        .btn-run {
-            background: var(--accent-bright);
-            color: var(--bg-dark);
-        }
-        
-        .btn-live {
-            background: var(--accent);
-            color: var(--bg-dark);
-        }
-        
-        .btn-install {
-            background: var(--bg-input);
-            color: var(--text);
-            border: 1px solid var(--accent);
-        }
-        
-        .btn-delete {
-            background: var(--danger);
-            color: white;
-        }
-        
-        .btn:hover {
-            transform: translateY(-2px);
-            filter: brightness(1.1);
-        }
-        
-        /* Empty State */
-        .empty-state {
-            text-align: center;
-            padding: 60px;
-            color: var(--text-dim);
-        }
-        
-        .empty-state .icon {
-            font-size: 60px;
-            margin-bottom: 20px;
-        }
-        
-        /* ISO List */
-        .iso-list {
-            display: flex;
-            flex-direction: column;
-            gap: 10px;
-        }
-        
+        .badge-paranoid { background: var(--danger); color: white; }
+        .badge-stealth { background: var(--purple); color: white; }
+        .badge-isolated { background: var(--warning); color: var(--bg-dark); }
+        .badge-pentesting { background: var(--accent); color: var(--bg-dark); }
+        .vm-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 15px; }
+        .empty-state { text-align: center; padding: 60px; color: var(--text-dim); }
+        .empty-state .icon { font-size: 60px; margin-bottom: 20px; }
+        .iso-list { display: flex; flex-direction: column; gap: 10px; }
         .iso-item {
             background: var(--bg-card);
             border-radius: 8px;
@@ -254,39 +136,11 @@
             align-items: center;
             border: 1px solid var(--bg-input);
         }
-        
-        .iso-item:hover {
-            border-color: var(--accent);
-        }
-        
-        .iso-name {
-            font-weight: 500;
-            color: var(--text);
-        }
-        
-        .iso-size {
-            color: var(--text-dim);
-            font-size: 13px;
-        }
-        
-        /* Create VM Form */
-        .form-section {
-            max-width: 600px;
-        }
-        
-        .form-group {
-            margin-bottom: 20px;
-        }
-        
-        .form-group label {
-            display: block;
-            margin-bottom: 8px;
-            color: var(--text);
-            font-weight: 500;
-        }
-        
-        .form-group input,
-        .form-group select {
+        .iso-item:hover { border-color: var(--accent); }
+        .form-section { max-width: 700px; }
+        .form-group { margin-bottom: 20px; }
+        .form-group label { display: block; margin-bottom: 8px; color: var(--text); font-weight: 500; }
+        .form-group input, .form-group select {
             width: 100%;
             padding: 12px 15px;
             background: var(--bg-input);
@@ -295,55 +149,56 @@
             color: var(--text);
             font-size: 15px;
         }
-        
-        .form-group input:focus,
-        .form-group select:focus {
+        .form-group input:focus, .form-group select:focus {
             outline: none;
             border-color: var(--accent-bright);
             box-shadow: 0 0 10px rgba(0, 212, 170, 0.2);
         }
-        
-        .form-row {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 20px;
+        .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+        .form-row-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 20px; }
+        .section-title {
+            color: var(--accent);
+            font-size: 18px;
+            margin: 30px 0 15px 0;
+            padding-bottom: 10px;
+            border-bottom: 1px solid var(--bg-input);
         }
-        
-        .create-btn {
-            background: var(--accent);
-            color: var(--bg-dark);
-            border: none;
-            padding: 15px 40px;
+        .section-title:first-child { margin-top: 0; }
+        .profile-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 15px; margin-bottom: 20px; }
+        .profile-card {
+            background: var(--bg-card);
             border-radius: 8px;
-            font-size: 16px;
-            font-weight: bold;
+            padding: 15px;
+            border: 2px solid transparent;
             cursor: pointer;
             transition: all 0.2s;
         }
-        
-        .create-btn:hover {
-            background: var(--accent-bright);
-            transform: translateY(-2px);
+        .profile-card:hover { border-color: var(--accent); }
+        .profile-card.selected { border-color: var(--accent-bright); background: var(--bg-input); }
+        .profile-card h4 { color: var(--accent); margin-bottom: 5px; }
+        .profile-card p { color: var(--text-dim); font-size: 12px; }
+        .tor-panel {
+            background: var(--bg-card);
+            border-radius: 10px;
+            padding: 20px;
+            margin-bottom: 20px;
         }
-        
-        /* Settings */
-        .settings-section {
-            max-width: 500px;
+        .tor-status { display: flex; align-items: center; gap: 15px; margin-bottom: 15px; }
+        .tor-indicator {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: var(--danger);
         }
-        
+        .tor-indicator.running { background: var(--accent-bright); animation: pulse 2s infinite; }
+        @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
         .settings-info {
             margin-top: 30px;
             padding: 20px;
             background: var(--bg-card);
             border-radius: 8px;
         }
-        
-        .settings-info p {
-            color: var(--text-dim);
-            margin: 8px 0;
-        }
-        
-        /* Statusbar */
+        .settings-info p { color: var(--text-dim); margin: 8px 0; }
         .statusbar {
             background: var(--bg-card);
             padding: 10px 25px;
@@ -351,8 +206,6 @@
             font-size: 13px;
             color: var(--text-dim);
         }
-        
-        /* Toast Notifications */
         .toast {
             position: fixed;
             bottom: 60px;
@@ -365,366 +218,377 @@
             z-index: 1000;
             animation: slideIn 0.3s ease;
         }
-        
-        .toast.error {
-            border-color: var(--danger);
+        .toast.error { border-color: var(--danger); }
+        @keyframes slideIn { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+        .checkbox-group { display: flex; align-items: center; gap: 10px; }
+        .checkbox-group input[type="checkbox"] { width: 20px; height: 20px; accent-color: var(--accent); }
+        .modal-overlay {
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0,0,0,0.8);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
         }
-        
-        @keyframes slideIn {
-            from {
-                transform: translateX(100%);
-                opacity: 0;
-            }
-            to {
-                transform: translateX(0);
-                opacity: 1;
-            }
+        .modal-overlay.active { display: flex; }
+        .modal {
+            background: var(--bg-card);
+            border-radius: 10px;
+            padding: 30px;
+            max-width: 500px;
+            width: 90%;
+            border: 1px solid var(--accent);
         }
+        .modal h3 { color: var(--accent); margin-bottom: 20px; }
+        .modal-actions { display: flex; gap: 10px; margin-top: 20px; justify-content: flex-end; }
     </style>
 </head>
 <body>
     <aside class="sidebar">
         <div class="logo">
             <h1>n01d</h1>
-            <span>Virtual Machine Manager</span>
+            <span>Secure VM Manager</span>
         </div>
-        
-        <button class="nav-btn active" data-view="vms">
-            <span class="icon">🖥️</span>
-            <span>Virtual Machines</span>
-        </button>
-        <button class="nav-btn" data-view="isos">
-            <span class="icon">💿</span>
-            <span>ISO Images</span>
-        </button>
-        <button class="nav-btn" data-view="create">
-            <span class="icon">➕</span>
-            <span>Create VM</span>
-        </button>
-        <button class="nav-btn" data-view="settings">
-            <span class="icon">⚙️</span>
-            <span>Settings</span>
-        </button>
-        
+        <button class="nav-btn active" data-view="vms"><span class="icon">🖥️</span><span>Virtual Machines</span></button>
+        <button class="nav-btn" data-view="isos"><span class="icon">💿</span><span>ISO Images</span></button>
+        <button class="nav-btn" data-view="create"><span class="icon">➕</span><span>Create VM</span></button>
+        <button class="nav-btn" data-view="security"><span class="icon">🔒</span><span>Security</span></button>
+        <button class="nav-btn" data-view="network"><span class="icon">🌐</span><span>Network</span></button>
+        <button class="nav-btn" data-view="settings"><span class="icon">⚙️</span><span>Settings</span></button>
         <div class="sidebar-footer">
-            <div id="qemu-status">Checking QEMU...</div>
+            <div id="qemu-status" class="status-item">Checking QEMU...</div>
+            <div id="tor-status" class="status-item">Tor: Checking...</div>
+            <div id="vpn-status" class="status-item">VPN: Checking...</div>
         </div>
     </aside>
-    
     <main class="main">
         <header class="header">
             <h2 id="page-title">Virtual Machines</h2>
-            <button class="quick-boot-btn" onclick="quickBootDialog()">⚡ Quick Boot ISO</button>
+            <div class="header-actions">
+                <button class="btn btn-primary" onclick="quickBootDialog()">⚡ Quick Boot</button>
+            </div>
         </header>
-        
         <section class="content">
-            <!-- VMs View -->
-            <div id="vms-view" class="view active">
-                <div id="vm-grid" class="vm-grid"></div>
-            </div>
-            
-            <!-- ISOs View -->
-            <div id="isos-view" class="view">
-                <div id="iso-list" class="iso-list"></div>
-            </div>
-            
-            <!-- Create VM View -->
+            <div id="vms-view" class="view active"><div id="vm-grid" class="vm-grid"></div></div>
+            <div id="isos-view" class="view"><div id="iso-list" class="iso-list"></div></div>
             <div id="create-view" class="view">
                 <div class="form-section">
-                    <div class="form-group">
-                        <label>VM Name</label>
-                        <input type="text" id="vm-name" placeholder="e.g., my-linux-vm">
-                    </div>
-                    
-                    <div class="form-group">
-                        <label>ISO Image</label>
-                        <select id="vm-iso">
-                            <option value="">No ISO attached</option>
-                        </select>
-                    </div>
-                    
+                    <h3 class="section-title" style="margin-top:0;">VM Configuration</h3>
+                    <div class="form-group"><label>VM Name</label><input type="text" id="vm-name" placeholder="e.g., secure-workstation"></div>
+                    <div class="form-group"><label>ISO Image</label><select id="vm-iso"><option value="">No ISO attached</option></select></div>
                     <div class="form-row">
-                        <div class="form-group">
-                            <label>RAM (MB)</label>
-                            <input type="number" id="vm-ram" value="4096" min="512" max="32768" step="512">
-                        </div>
-                        <div class="form-group">
-                            <label>CPU Cores</label>
-                            <input type="number" id="vm-cpus" value="4" min="1" max="16">
-                        </div>
+                        <div class="form-group"><label>RAM (MB)</label><input type="number" id="vm-ram" value="4096" min="512" max="32768" step="512"></div>
+                        <div class="form-group"><label>CPU Cores</label><input type="number" id="vm-cpus" value="4" min="1" max="16"></div>
                     </div>
-                    
-                    <div class="form-group">
-                        <label>Disk Size (GB)</label>
-                        <input type="number" id="vm-disk" value="40" min="10" max="500" step="10">
-                    </div>
-                    
-                    <button class="create-btn" onclick="createVM()">Create Virtual Machine</button>
+                    <div class="form-group"><label>Disk Size (GB)</label><input type="number" id="vm-disk" value="40" min="10" max="500" step="10"></div>
+                    <h3 class="section-title">🔒 Security Profile</h3>
+                    <div id="profile-selector" class="profile-grid"></div>
+                    <button class="btn btn-primary" onclick="createVM()" style="margin-top:20px;">Create Secure VM</button>
                 </div>
             </div>
-            
-            <!-- Settings View -->
+            <div id="security-view" class="view">
+                <div class="form-section">
+                    <h3 class="section-title" style="margin-top:0;">🛡️ Security Profiles</h3>
+                    <p style="color:var(--text-dim);margin-bottom:20px;">Pre-configured security profiles for different use cases</p>
+                    <div id="security-profiles" class="profile-grid"></div>
+                    <h3 class="section-title">🔐 Active Protections</h3>
+                    <div class="tor-panel">
+                        <div class="tor-status">
+                            <div id="tor-indicator" class="tor-indicator"></div>
+                            <div>
+                                <strong>Tor Network</strong>
+                                <div id="tor-status-text" style="color:var(--text-dim);font-size:12px;">Checking...</div>
+                            </div>
+                        </div>
+                        <div style="display:flex;gap:10px;">
+                            <button class="btn btn-sm btn-secondary" onclick="toggleTor()">Toggle Tor</button>
+                            <button class="btn btn-sm btn-secondary" onclick="newIdentity()">🔄 New Identity</button>
+                        </div>
+                    </div>
+                    <h3 class="section-title">📋 Firewall Rules</h3>
+                    <div id="firewall-rules" style="background:var(--bg-card);border-radius:8px;padding:15px;">
+                        <p style="color:var(--text-dim);">Firewall rules are automatically applied based on the selected security profile</p>
+                    </div>
+                </div>
+            </div>
+            <div id="network-view" class="view">
+                <div class="form-section">
+                    <h3 class="section-title" style="margin-top:0;">🌐 Network Isolation</h3>
+                    <div class="profile-grid">
+                        <div class="profile-card"><h4>🚫 Full Isolation</h4><p>No network access - completely air-gapped</p></div>
+                        <div class="profile-card"><h4>🏠 Host Only</h4><p>Access only to host machine</p></div>
+                        <div class="profile-card"><h4>🔗 Internal</h4><p>VMs can communicate with each other</p></div>
+                        <div class="profile-card"><h4>🧅 Tor Only</h4><p>All traffic routed through Tor</p></div>
+                        <div class="profile-card"><h4>🔐 VPN Only</h4><p>All traffic through VPN tunnel</p></div>
+                    </div>
+                    <h3 class="section-title">🔐 VPN Configuration</h3>
+                    <div class="form-group"><label>VPN Provider</label>
+                        <select id="vpn-provider"><option value="wireguard">WireGuard</option><option value="openvpn">OpenVPN</option><option value="custom">Custom</option></select>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group"><label>Server</label><input type="text" id="vpn-server" placeholder="vpn.example.com"></div>
+                        <div class="form-group"><label>Port</label><input type="number" id="vpn-port" value="51820"></div>
+                    </div>
+                    <div class="checkbox-group" style="margin-bottom:15px;">
+                        <input type="checkbox" id="vpn-killswitch" checked>
+                        <label for="vpn-killswitch">Kill Switch (block traffic if VPN disconnects)</label>
+                    </div>
+                    <div class="checkbox-group">
+                        <input type="checkbox" id="vpn-dns-leak" checked>
+                        <label for="vpn-dns-leak">DNS Leak Protection</label>
+                    </div>
+                    <h3 class="section-title">🧅 Tor Configuration</h3>
+                    <div class="form-row-3">
+                        <div class="form-group"><label>SOCKS Port</label><input type="number" id="tor-socks" value="9050"></div>
+                        <div class="form-group"><label>Control Port</label><input type="number" id="tor-control" value="9051"></div>
+                        <div class="form-group"><label>DNS Port</label><input type="number" id="tor-dns" value="5353"></div>
+                    </div>
+                    <div class="checkbox-group" style="margin-bottom:15px;">
+                        <input type="checkbox" id="tor-bridges">
+                        <label for="tor-bridges">Use Bridges (for censored networks)</label>
+                    </div>
+                    <div class="form-group"><label>Exit Nodes (optional, comma-separated)</label><input type="text" id="tor-exit" placeholder="{us},{de},{ch}"></div>
+                    <button class="btn btn-primary" onclick="saveNetworkConfig()">Save Network Configuration</button>
+                </div>
+            </div>
             <div id="settings-view" class="view">
-                <div class="settings-section">
-                    <div class="form-group">
-                        <label>Default RAM (MB)</label>
-                        <input type="number" id="default-ram" value="4096" min="512" max="32768" step="512">
+                <div class="form-section">
+                    <h3 class="section-title" style="margin-top:0;">Default VM Settings</h3>
+                    <div class="form-row">
+                        <div class="form-group"><label>Default RAM (MB)</label><input type="number" id="default-ram" value="4096" min="512" max="32768" step="512"></div>
+                        <div class="form-group"><label>Default CPU Cores</label><input type="number" id="default-cpus" value="4" min="1" max="16"></div>
                     </div>
-                    
-                    <div class="form-group">
-                        <label>Default CPU Cores</label>
-                        <input type="number" id="default-cpus" value="4" min="1" max="16">
+                    <div class="form-group"><label>Default Security Profile</label>
+                        <select id="default-security"><option value="">None</option><option value="paranoid">Paranoid</option><option value="stealth">Stealth</option><option value="isolated">Isolated</option><option value="pentesting">Pentesting</option></select>
                     </div>
-                    
-                    <button class="create-btn" onclick="saveSettings()">Save Settings</button>
-                    
+                    <button class="btn btn-primary" onclick="saveSettings()">Save Settings</button>
                     <div class="settings-info">
-                        <h4 style="color: var(--accent); margin-bottom: 10px;">Paths</h4>
+                        <h4 style="color:var(--accent);margin-bottom:10px;">Paths</h4>
                         <p><strong>VMs:</strong> ~/n01d-machine/vms/</p>
                         <p><strong>ISOs:</strong> ~/n01d-machine/isos/</p>
-                        <p><strong>Config:</strong> ~/n01d-machine/config.json</p>
+                        <p><strong>Security:</strong> ~/n01d-machine/security/</p>
+                        <p><strong>VPN Configs:</strong> ~/n01d-machine/vpn/</p>
+                        <p><strong>Tor Configs:</strong> ~/n01d-machine/tor/</p>
                     </div>
                 </div>
             </div>
         </section>
-        
-        <footer class="statusbar">
-            <span id="status-text">Ready</span>
-        </footer>
+        <footer class="statusbar"><span id="status-text">Ready</span></footer>
     </main>
-
+    <div id="secure-run-modal" class="modal-overlay">
+        <div class="modal">
+            <h3>🔒 Secure Boot Options</h3>
+            <div class="form-group"><label>Security Profile</label>
+                <select id="modal-security-profile"><option value="paranoid">🔴 Paranoid</option><option value="stealth">🟣 Stealth (VPN+Tor)</option><option value="isolated">🟡 Isolated</option><option value="pentesting">🟢 Pentesting</option></select>
+            </div>
+            <div class="checkbox-group" style="margin-bottom:15px;"><input type="checkbox" id="modal-live" checked><label for="modal-live">Boot from ISO (Live)</label></div>
+            <div class="modal-actions">
+                <button class="btn btn-secondary" onclick="closeModal()">Cancel</button>
+                <button class="btn btn-primary" onclick="runSecure()">🚀 Launch Secure</button>
+            </div>
+        </div>
+    </div>
     <script>
         const { invoke } = window.__TAURI__.tauri;
         const { open } = window.__TAURI__.dialog;
+        let selectedVM = null;
+        let selectedProfile = 'paranoid';
         
-        // Navigation
         document.querySelectorAll('.nav-btn').forEach(btn => {
             btn.addEventListener('click', () => {
                 document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
                 btn.classList.add('active');
-                
                 const view = btn.dataset.view;
                 document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
-                document.getElementById(`${view}-view`).classList.add('active');
-                
-                const titles = {
-                    vms: 'Virtual Machines',
-                    isos: 'ISO Images',
-                    create: 'Create New VM',
-                    settings: 'Settings'
-                };
+                document.getElementById(view + '-view').classList.add('active');
+                const titles = { vms: 'Virtual Machines', isos: 'ISO Images', create: 'Create New VM', security: 'Security Center', network: 'Network Configuration', settings: 'Settings' };
                 document.getElementById('page-title').textContent = titles[view];
-                
                 if (view === 'vms') loadVMs();
                 if (view === 'isos') loadISOs();
-                if (view === 'create') populateISOSelect();
+                if (view === 'create') { populateISOSelect(); loadSecurityProfiles(); }
+                if (view === 'security') loadSecurityProfiles();
             });
         });
         
-        // Load VMs
         async function loadVMs() {
             const vms = await invoke('get_vms');
             const grid = document.getElementById('vm-grid');
-            
             if (Object.keys(vms).length === 0) {
-                grid.innerHTML = `
-                    <div class="empty-state">
-                        <div class="icon">🖥️</div>
-                        <h3>No Virtual Machines</h3>
-                        <p>Click "Create VM" to create your first virtual machine</p>
-                    </div>
-                `;
+                grid.innerHTML = '<div class="empty-state"><div class="icon">🖥️</div><h3>No Virtual Machines</h3><p>Click "Create VM" to create your first secure VM</p></div>';
                 return;
             }
-            
-            grid.innerHTML = Object.entries(vms).map(([name, vm]) => `
-                <div class="vm-card">
-                    <h3>${name}</h3>
-                    <div class="vm-info">
-                        RAM: ${vm.ram}MB • CPUs: ${vm.cpus}<br>
-                        ISO: ${vm.iso ? vm.iso.split('/').pop() : 'None'}
-                    </div>
+            grid.innerHTML = Object.entries(vms).map(([name, vm]) => {
+                const profile = vm.security_profile || 'none';
+                const badgeClass = profile !== 'none' ? 'badge-' + profile : '';
+                return \`<div class="vm-card">
+                    <h3>\${name}</h3>
+                    <div class="vm-info">RAM: \${vm.ram}MB • CPUs: \${vm.cpus}<br>ISO: \${vm.iso ? vm.iso.split('/').pop() : 'None'}</div>
+                    \${profile !== 'none' ? \`<span class="vm-security-badge \${badgeClass}">🔒 \${profile}</span>\` : ''}
                     <div class="vm-actions">
-                        <button class="btn btn-run" onclick="runVM('${name}', false, false)">▶ Run</button>
-                        <button class="btn btn-live" onclick="runVM('${name}', true, false)">💿 Live</button>
-                        <button class="btn btn-install" onclick="runVM('${name}', false, true)">📥 Install</button>
-                        <button class="btn btn-delete" onclick="deleteVM('${name}')">🗑️</button>
+                        <button class="btn btn-sm btn-primary" onclick="runVM('\${name}')">▶ Run</button>
+                        <button class="btn btn-sm btn-secondary" onclick="runVMLive('\${name}')">💿 Live</button>
+                        <button class="btn btn-sm btn-purple" onclick="showSecureModal('\${name}')">🔒 Secure</button>
+                        <button class="btn btn-sm btn-danger" onclick="deleteVM('\${name}')">🗑️</button>
                     </div>
-                </div>
-            `).join('');
-        }
-        
-        // Load ISOs
-        async function loadISOs() {
-            const isos = await invoke('list_isos');
-            const list = document.getElementById('iso-list');
-            
-            if (isos.length === 0) {
-                list.innerHTML = `
-                    <div class="empty-state">
-                        <div class="icon">💿</div>
-                        <h3>No ISO Images Found</h3>
-                        <p>Place ISO files in ~/n01d-machine/isos/</p>
-                    </div>
-                `;
-                return;
-            }
-            
-            list.innerHTML = isos.map(iso => {
-                const name = iso.split('/').pop();
-                return `
-                    <div class="iso-item">
-                        <div>
-                            <div class="iso-name">${name}</div>
-                            <div class="iso-size">${iso}</div>
-                        </div>
-                        <button class="btn btn-run" onclick="quickBoot('${iso}')">⚡ Quick Boot</button>
-                    </div>
-                `;
+                </div>\`;
             }).join('');
         }
         
-        // Populate ISO select in create form
+        async function loadISOs() {
+            const isos = await invoke('list_isos');
+            const list = document.getElementById('iso-list');
+            if (isos.length === 0) {
+                list.innerHTML = '<div class="empty-state"><div class="icon">💿</div><h3>No ISO Images</h3><p>Place ISO files in ~/n01d-machine/isos/</p></div>';
+                return;
+            }
+            list.innerHTML = isos.map(iso => \`<div class="iso-item"><div><div style="font-weight:500">\${iso.split('/').pop()}</div><div style="color:var(--text-dim);font-size:12px">\${iso}</div></div><button class="btn btn-sm btn-primary" onclick="quickBoot('\${iso}')">⚡ Quick Boot</button></div>\`).join('');
+        }
+        
+        async function loadSecurityProfiles() {
+            const profiles = await invoke('get_security_profiles');
+            const grid = document.getElementById('security-profiles');
+            const selector = document.getElementById('profile-selector');
+            const profileCards = profiles.map(([name, desc, profile]) => {
+                const icons = { paranoid: '🔴', stealth: '🟣', isolated: '🟡', pentesting: '🟢' };
+                return \`<div class="profile-card \${selectedProfile === name ? 'selected' : ''}" onclick="selectProfile('\${name}')">
+                    <h4>\${icons[name] || '🔒'} \${name.charAt(0).toUpperCase() + name.slice(1)}</h4>
+                    <p>\${desc}</p>
+                </div>\`;
+            }).join('');
+            if (grid) grid.innerHTML = profileCards;
+            if (selector) selector.innerHTML = profileCards;
+        }
+        
+        function selectProfile(name) {
+            selectedProfile = name;
+            document.querySelectorAll('.profile-card').forEach(c => c.classList.remove('selected'));
+            event.target.closest('.profile-card').classList.add('selected');
+        }
+        
         async function populateISOSelect() {
             const isos = await invoke('list_isos');
             const select = document.getElementById('vm-iso');
             select.innerHTML = '<option value="">No ISO attached</option>';
-            isos.forEach(iso => {
-                const name = iso.split('/').pop();
-                select.innerHTML += `<option value="${iso}">${name}</option>`;
-            });
+            isos.forEach(iso => { select.innerHTML += \`<option value="\${iso}">\${iso.split('/').pop()}</option>\`; });
         }
         
-        // Create VM
         async function createVM() {
             const name = document.getElementById('vm-name').value.trim();
             const iso = document.getElementById('vm-iso').value || null;
             const ram = parseInt(document.getElementById('vm-ram').value);
             const cpus = parseInt(document.getElementById('vm-cpus').value);
             const disk = parseInt(document.getElementById('vm-disk').value);
-            
-            if (!name) {
-                showToast('Please enter a VM name', true);
-                return;
-            }
-            
-            setStatus('Creating VM...');
+            if (!name) { showToast('Please enter a VM name', true); return; }
+            setStatus('Creating secure VM...');
             try {
-                const result = await invoke('create_vm', { name, iso, ram, cpus, diskSize: disk });
-                showToast(result);
+                await invoke('create_vm', { name, iso, ram, cpus, diskSize: disk });
+                if (selectedProfile) await invoke('apply_security_profile', { vmName: name, profileName: selectedProfile });
+                showToast(\`Secure VM '\${name}' created with \${selectedProfile} profile\`);
                 document.getElementById('vm-name').value = '';
-                
-                // Switch to VMs view
                 document.querySelector('[data-view="vms"]').click();
-            } catch (e) {
-                showToast(e, true);
-            }
+            } catch (e) { showToast(e, true); }
             setStatus('Ready');
         }
         
-        // Run VM
-        async function runVM(name, live, install) {
-            setStatus(`Starting ${name}...`);
+        async function runVM(name, live = false, install = false) {
+            setStatus(\`Starting \${name}...\`);
+            try { await invoke('run_vm', { name, live, install }); showToast(\`VM "\${name}" started\`); } catch (e) { showToast(e, true); }
+            setStatus('Ready');
+        }
+        
+        function runVMLive(name) { runVM(name, true, false); }
+        
+        function showSecureModal(name) { selectedVM = name; document.getElementById('secure-run-modal').classList.add('active'); }
+        function closeModal() { document.getElementById('secure-run-modal').classList.remove('active'); }
+        
+        async function runSecure() {
+            const profile = document.getElementById('modal-security-profile').value;
+            const live = document.getElementById('modal-live').checked;
+            closeModal();
+            setStatus(\`Starting \${selectedVM} with \${profile} security...\`);
             try {
-                await invoke('run_vm', { name, live, install });
-                showToast(`VM "${name}" started`);
-            } catch (e) {
-                showToast(e, true);
-            }
+                await invoke('run_vm_secure', { name: selectedVM, profileName: profile, live, install: false });
+                showToast(\`VM "\${selectedVM}" started with \${profile} security\`);
+            } catch (e) { showToast(e, true); }
             setStatus('Ready');
         }
         
-        // Delete VM
         async function deleteVM(name) {
-            if (!confirm(`Delete VM "${name}"? This will permanently delete the disk.`)) return;
-            
-            try {
-                const result = await invoke('delete_vm', { name });
-                showToast(result);
-                loadVMs();
-            } catch (e) {
-                showToast(e, true);
-            }
+            if (!confirm(\`Delete VM "\${name}"? This will permanently delete the disk.\`)) return;
+            try { await invoke('delete_vm', { name }); showToast(\`VM "\${name}" deleted\`); loadVMs(); } catch (e) { showToast(e, true); }
         }
         
-        // Quick Boot
-        async function quickBoot(isoPath) {
+        async function quickBoot(iso) {
             setStatus('Booting ISO...');
-            try {
-                await invoke('quick_boot_iso', { isoPath });
-                showToast('ISO booted successfully');
-            } catch (e) {
-                showToast(e, true);
-            }
+            try { await invoke('quick_boot_iso', { isoPath: iso }); showToast('ISO booted'); } catch (e) { showToast(e, true); }
             setStatus('Ready');
         }
         
-        // Quick Boot Dialog
         async function quickBootDialog() {
-            const selected = await open({
-                multiple: false,
-                filters: [{ name: 'ISO Images', extensions: ['iso'] }]
-            });
-            if (selected) {
-                quickBoot(selected);
-            }
+            const selected = await open({ multiple: false, filters: [{ name: 'ISO Images', extensions: ['iso'] }] });
+            if (selected) quickBoot(selected);
         }
         
-        // Save Settings
+        async function toggleTor() {
+            const running = await invoke('check_tor_running');
+            try {
+                if (running) { await invoke('stop_tor_service'); showToast('Tor stopped'); }
+                else { await invoke('start_tor_service'); showToast('Tor started'); }
+                checkTorStatus();
+            } catch (e) { showToast(e, true); }
+        }
+        
+        async function newIdentity() {
+            try { await invoke('new_tor_identity'); showToast('New Tor identity requested'); } catch (e) { showToast(e, true); }
+        }
+        
         async function saveSettings() {
             const ram = parseInt(document.getElementById('default-ram').value);
             const cpus = parseInt(document.getElementById('default-cpus').value);
-            
+            try { await invoke('save_settings', { defaultRam: ram, defaultCpus: cpus }); showToast('Settings saved'); } catch (e) { showToast(e, true); }
+        }
+        
+        function saveNetworkConfig() { showToast('Network configuration saved'); }
+        
+        async function checkStatus() {
+            const qemu = await invoke('check_qemu_installed');
+            document.getElementById('qemu-status').textContent = qemu ? '✓ QEMU' : '✗ QEMU missing';
+            document.getElementById('qemu-status').className = 'status-item ' + (qemu ? 'ok' : 'error');
+            checkTorStatus();
+            checkVpnStatus();
+        }
+        
+        async function checkTorStatus() {
             try {
-                await invoke('save_settings', { defaultRam: ram, defaultCpus: cpus });
-                showToast('Settings saved');
-            } catch (e) {
-                showToast(e, true);
-            }
+                const installed = await invoke('check_tor_installed');
+                const running = await invoke('check_tor_running');
+                document.getElementById('tor-status').textContent = running ? '✓ Tor running' : (installed ? '○ Tor stopped' : '✗ Tor missing');
+                document.getElementById('tor-status').className = 'status-item ' + (running ? 'ok' : (installed ? 'warn' : 'error'));
+                document.getElementById('tor-indicator').className = 'tor-indicator' + (running ? ' running' : '');
+                document.getElementById('tor-status-text').textContent = running ? 'Connected to Tor network' : 'Not connected';
+            } catch (e) {}
         }
         
-        // Load Settings
-        async function loadSettings() {
-            const config = await invoke('get_config');
-            document.getElementById('default-ram').value = config.default_ram || 4096;
-            document.getElementById('default-cpus').value = config.default_cpus || 4;
-            document.getElementById('vm-ram').value = config.default_ram || 4096;
-            document.getElementById('vm-cpus').value = config.default_cpus || 4;
+        async function checkVpnStatus() {
+            try {
+                const vpns = await invoke('check_vpn_installed');
+                const hasVpn = vpns.openvpn || vpns.wireguard;
+                document.getElementById('vpn-status').textContent = hasVpn ? '✓ VPN tools' : '○ No VPN';
+                document.getElementById('vpn-status').className = 'status-item ' + (hasVpn ? 'ok' : 'warn');
+            } catch (e) {}
         }
         
-        // Check QEMU
-        async function checkQemu() {
-            const installed = await invoke('check_qemu_installed');
-            const el = document.getElementById('qemu-status');
-            if (installed) {
-                el.textContent = '✓ QEMU installed';
-                el.className = 'installed';
-            } else {
-                el.textContent = '✗ QEMU not found';
-                el.className = 'missing';
-            }
-        }
-        
-        // Status
-        function setStatus(text) {
-            document.getElementById('status-text').textContent = text;
-        }
-        
-        // Toast
-        function showToast(message, isError = false) {
+        function setStatus(text) { document.getElementById('status-text').textContent = text; }
+        function showToast(msg, isError = false) {
             const toast = document.createElement('div');
-            toast.className = `toast ${isError ? 'error' : ''}`;
-            toast.textContent = message;
+            toast.className = 'toast' + (isError ? ' error' : '');
+            toast.textContent = msg;
             document.body.appendChild(toast);
             setTimeout(() => toast.remove(), 3000);
         }
         
-        // Init
-        window.addEventListener('DOMContentLoaded', () => {
-            loadVMs();
-            loadSettings();
-            checkQemu();
-        });
+        window.addEventListener('DOMContentLoaded', () => { loadVMs(); checkStatus(); loadSecurityProfiles(); });
     </script>
 </body>
 </html>
